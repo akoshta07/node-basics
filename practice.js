@@ -1,28 +1,42 @@
-const MongoClient = require('mongodb').MongoClient;
-const assert = require('assert');
+const mongoose = require('mongoose');
+mongoose.Promise = require('bluebird');
 
-const url = 'mongodb://localhost:27017';
+const Dishes = require('./models/dishes');
 
-MongoClient.connect(url,(err,client)=>{ 
-    var db = client.db('conFusion');
-    assert.equal(err,null);
+const url = 'mongodb://localhost:27017/conFusion';
+const connect = mongoose.connect(url);
 
-    console.log('Connected correctly to server');
+connect.then((db)=>{
+    var db = mongoose.connection;
 
-    const collection = db.collection('dishes');
-    collection.insertOne({"name":"Utha","test":"test"},
-    (err,result)=> {
-        assert.equal(err,null);
-        
-        collection.find({}).toArray((err,docs)=>{
-            assert.equal(err,null);
-
-            db.dropCollection("dishes",(err,result)=>{
-                assert.equal(err,null);
-
-                client.close();
-            })
-        })
+    Dishes.create({
+        name : 'Uthappiza',
+        description: 'test'
     })
+    .then((dish)=>{
+        console.log(dish);
+        return Dishes.findByIdAndUpdate(dish._id,{
+            $set: {description: 'Updated test'}
+        },{
+            new: true
+        })
+        .exec();
+    })
+    .then((dish)=>{
+        console.log(dish);
 
-});
+        dish.comments.push({
+            rating:5,
+            comment:'',
+            author: ''
+        });
+        return dish.save();
+    })
+    .then((dish)=>{
+        console.log();
+        return db.Collection('dishes').drop();
+    })
+    .then(()=>{
+        return db.close()
+    })
+})
